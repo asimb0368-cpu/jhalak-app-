@@ -1,4 +1,4 @@
-name: Build Jhalak APK
+name: Build Jhalak APK with Logo
 on: [push]
 jobs:
   build:
@@ -8,14 +8,46 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.22.0'
-      - name: Create android folder
+      - name: Create android folder and icons from your logo
         run: |
-          flutter create temp_app --platforms=android --project-name=jhalak_app
-          cp -r temp_app/android ./android
+          flutter create temp_app --platforms=android --project-name jhalak
+          cp -r temp_app/android./android
           rm -rf temp_app
+          pip install Pillow
+          python3 << 'PY'
+          from PIL import Image
+          import glob, os
+          # Find your uploaded logo in root
+          candidates = glob.glob("*.jpg") + glob.glob("*.jpeg") + glob.glob("*.png")
+          candidates = [f for f in candidates if not f.startswith("android")]
+          if not candidates:
+              print("No logo file found in root")
+              exit(0)
+          logo_file = candidates[0]
+          print(f"Found logo: {logo_file}")
+          im = Image.open(logo_file).convert("RGBA")
+          w, h = im.size
+          # Crop top icon part (your star logo)
+          top = im.crop((int(w*0.1), int(h*0.05), int(w*0.9), int(h*0.78)))
+          # Make 1024 square black background
+          size = max(top.size)
+          sq = Image.new("RGBA", (size, size), (0,0,0,0))
+          sq.paste(top, ((size-top.width)//2, (size-top.height)//2), top)
+          base = Image.new("RGBA", (1024,1024), (0,0,0,255))
+          sq_big = sq.resize((880,880), Image.LANCZOS)
+          base.paste(sq_big, (72,72), sq_big)
+          # Save to all mipmap folders
+          for folder in glob.glob("android/app/src/main/res/mipmap-*"):
+              s = 192 if "xxxhdpi" in folder else 144 if "xxhdpi" in folder else 96 if "xhdpi" in folder else 72 if "hdpi" in folder else 48 if "mdpi" in folder else 144
+              resized = base.resize((s,s), Image.LANCZOS)
+              for name in ["ic_launcher.png", "ic_launcher_round.png"]:
+                  p = os.path.join(folder, name)
+                  resized.save(p)
+                  print(f"Saved {p}")
+          PY
       - run: flutter pub get
       - run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
-          name: jhalak-apk
+          name: jhalak-apk-with-logo
           path: build/app/outputs/flutter-apk/app-release.apk
