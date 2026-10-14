@@ -8,9 +8,14 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.22.0'
+      - name: Create android folder
+        run: |
+          flutter create temp_app --platforms=android --project-name=jhalak_app
+          cp -r temp_app/android ./android
+          rm -rf temp_app
       - run: flutter pub get
       - run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
           name: jhalak-apk
-          path: build/app/outputs/flutter-apk/app-release.apk 
+          path: build/app/outputs/flutter-apk/app-release.apk
